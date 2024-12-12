@@ -7,7 +7,8 @@ import asyncio
 import datetime
 import shutil
 import psutil
-from typing import Tuple, List, Dict
+import html  # <-- Added this import
+from typing import Tuple, List, Dict, Optional
 
 from pyrogram import Client, filters
 from pyrogram.enums import ParseMode
@@ -55,6 +56,10 @@ async def handle_broadcast_completion(
     total_users: int,
     start_time: float
 ):
+    """
+    Handle the completion of the broadcast by deleting the initial message
+    and sending a summary to the admin.
+    """
     elapsed_time = get_readable_time(time.time() - start_time)
     await output.delete()
     message_text = (
@@ -73,6 +78,9 @@ async def handle_broadcast_completion(
 @StreamBot.on_message(filters.command("users") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def get_total_users(client: Client, message: Message):
+    """
+    Handler for the /users command. Sends the total number of users in the database.
+    """
     try:
         total_users = await db.total_users_count()
         await message.reply_text(
@@ -92,6 +100,9 @@ async def get_total_users(client: Client, message: Message):
 @StreamBot.on_message(filters.command("broadcast") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def broadcast_message(client: Client, message: Message):
+    """
+    Handler for the /broadcast command. Broadcasts a message to all users.
+    """
     if not message.reply_to_message:
         await message.reply_text("⚠️ **Please reply to a message to broadcast.**", quote=True)
         return
@@ -103,10 +114,8 @@ async def broadcast_message(client: Client, message: Message):
             disable_web_page_preview=True
         )
 
-        all_users_cursor = db.get_all_users()
-        all_users: List[Dict[str, int]] = []
-        async for user in all_users_cursor:
-            all_users.append(user)
+        # Await the coroutine to get the list of users
+        all_users = await db.get_all_users()
 
         if not all_users:
             await output.edit("📢 **No Users Found**. Broadcast aborted.")
@@ -139,23 +148,27 @@ async def broadcast_message(client: Client, message: Message):
 
                         async with successes_lock:
                             successes += 1
-                        break
+                        break  # Message sent successfully, exit retry loop
                     except FloodWait as e:
                         await handle_flood_wait(e)
-                        continue
+                        continue  # Retry after waiting
                     except Exception as e:
                         logger.warning(f"Problem sending to {user_id}: {e}")
+                        # If the error is related to the bot itself, don't retry
                         if "bot" in str(e).lower() or "self" in str(e).lower():
                             break
+                        # If the user is not found, remove them from the database
                         if "user" in str(e).lower() and "not found" in str(e).lower():
                             await db.delete_user(user_id)
                         async with failures_lock:
                             failures += 1
-                        await asyncio.sleep(0.5)
+                        await asyncio.sleep(0.5)  # Brief pause before retrying
 
+        # Create a list of tasks for concurrent execution
         tasks = [send_message_to_user(int(user['id'])) for user in all_users]
         await asyncio.gather(*tasks)
 
+        # Handle the completion of the broadcast
         await handle_broadcast_completion(
             message,
             output,
@@ -178,6 +191,9 @@ async def broadcast_message(client: Client, message: Message):
 @StreamBot.on_message(filters.command("status") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def show_status(client: Client, message: Message):
+    """
+    Handler for the /status command. Shows the server and bot status.
+    """
     try:
         uptime = get_readable_time(time.time() - StartTime)
         workloads_text = "📊 **Workloads per Bot:**\n\n"
@@ -215,6 +231,9 @@ async def show_status(client: Client, message: Message):
 @StreamBot.on_message(filters.command("stats") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def show_stats(client: Client, message: Message):
+    """
+    Handler for the /stats command. Shows detailed bot statistics.
+    """
     try:
         current_time = get_readable_time(time.time() - StartTime)
         total, used, free = shutil.disk_usage('.')
@@ -249,6 +268,9 @@ async def show_stats(client: Client, message: Message):
 @StreamBot.on_message(filters.command("restart") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def restart_bot(client: Client, message: Message):
+    """
+    Handler for the /restart command. Restarts the bot.
+    """
     try:
         await message.reply_text(
             "🔄 **Restarting the bot...**",
@@ -269,6 +291,9 @@ async def restart_bot(client: Client, message: Message):
 @StreamBot.on_message(filters.command("log") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def send_logs(client: Client, message: Message):
+    """
+    Handler for the /log command. Sends the latest log file to the admin.
+    """
     try:
         log_file_path = LOG_FILE
         if os.path.exists(log_file_path):
@@ -304,6 +329,9 @@ async def send_logs(client: Client, message: Message):
 @StreamBot.on_message(filters.command("shell") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def run_shell_command(client: Client, message: Message):
+    """
+    Handler for the /shell command. Executes shell commands on the server.
+    """
     try:
         if len(message.command) < 2:
             await message.reply_text(
@@ -325,15 +353,16 @@ async def run_shell_command(client: Client, message: Message):
         stdout, stderr = await process.communicate()
         stdout, stderr = stdout.decode().strip(), stderr.decode().strip()
 
+        # html is now imported above
         stdout = html.escape(stdout)
         stderr = html.escape(stderr)
 
         response = ""
         if stdout:
-            stdout = stdout[:4000]
+            stdout = stdout[:4000]  # Truncate if too long
             response += f"<b>STDOUT:</b>\n<pre>{stdout}</pre>"
         if stderr:
-            stderr = stderr[:4000]
+            stderr = stderr[:4000]  # Truncate if too long
             if stdout:
                 response += "\n\n"
             response += f"<b>STDERR:</b>\n<pre>{stderr}</pre>"
