@@ -6,7 +6,7 @@ from urllib.parse import quote
 from typing import Optional, Tuple, Dict, Union, List
 
 from pyrogram import Client, filters, enums
-from pyrogram.errors import FloodWait, RPCError
+from pyrogram.errors import FloodWait, InputUserDeactivated, UserIsBlocked, PeerIdInvalid, RPCError
 from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -26,6 +26,7 @@ from Thunder.utils.shared import (
     handle_flood_wait,
     notify_owner,
     handle_user_error,
+    log_new_user,
     generate_media_links,
     send_links_to_user,
     log_request,
@@ -35,11 +36,28 @@ from Thunder.utils.shared import (
     generate_links_ready_message,
     generate_links_keyboard
 )
+from Thunder.utils.constants import (
+    INVALID_ARG_MSG,
+    FAILED_USER_INFO_MSG,
+    REPLY_DOES_NOT_CONTAIN_USER_MSG,
+    LINKS_READY_MESSAGE_TEMPLATE,
+    BROADCAST_MESSAGE_TEMPLATE
+)
+from Thunder.utils.decorators import command_handler
 from Thunder.utils.cache import get_cached_data, set_cache, clean_cache
 
 CACHE_EXPIRY: int = 86400  # 24 hours
 
 def get_file_unique_id(media_message: Message) -> Optional[str]:
+    """
+    Extract the unique file ID from a media message.
+
+    Args:
+        media_message (Message): The message containing media.
+
+    Returns:
+        Optional[str]: The unique file ID if found, else None.
+    """
     media_types = [
         'document', 'video', 'audio', 'photo', 'animation',
         'voice', 'video_note', 'sticker'
@@ -51,20 +69,31 @@ def get_file_unique_id(media_message: Message) -> Optional[str]:
     return None
 
 async def forward_media(media_message: Message) -> Message:
+    """
+    Forward a media message to the BIN_CHANNEL.
+
+    Args:
+        media_message (Message): The media message to forward.
+
+    Returns:
+        Message: The forwarded message in BIN_CHANNEL.
+    """
     try:
         return await media_message.forward(chat_id=Var.BIN_CHANNEL)
     except FloodWait as e:
-        await handle_flood_wait(e)
+        logger.warning(f"FloodWait error: sleeping for {e.value} seconds.")
+        await asyncio.sleep(e.value + 1)
         return await forward_media(media_message)
     except Exception as e:
-        error_text = f"Error forwarding media message: {e}"
-        logger.error(error_text, exc_info=True)
-        if hasattr(media_message, "_client"):
-            await notify_owner(media_message._client, error_text)
-        raise
+        error_msg = f"Error forwarding media message: {e}"
+        logger.error(error_msg, exc_info=True)
+        return None
 
 @StreamBot.on_message(filters.command("link") & ~filters.private)
 async def link_handler(client: Client, message: Message) -> None:
+    """
+    Handler for the /link command. Generates download and streaming links for the replied media.
+    """
     user_id: int = message.from_user.id
 
     if not await db.is_user_exist(user_id):
@@ -121,12 +150,35 @@ async def link_handler(client: Client, message: Message) -> None:
     else:
         await process_multiple_messages(client, message, reply_msg, num_files)
 
+@StreamBot.on_message(
+    filters.private & filters.incoming &
+    (
+        filters.document | filters.video | filters.photo | filters.audio |
+        filters.voice | filters.animation | filters.video_note
+    ),
+    group=4
+)
+async def private_receive_handler(client: Client, message: Message) -> None:
+    """
+    Handler for incoming media messages in private chats. Generates links.
+    """
+    await process_media_message(client, message, message)
+
 async def process_multiple_messages(
     client: Client,
     command_message: Message,
     reply_msg: Message,
     num_files: int
 ) -> None:
+    """
+    Process multiple media messages and generate links for each.
+
+    Args:
+        client (Client): The Pyrogram client.
+        command_message (Message): The command message invoking the handler.
+        reply_msg (Message): The message being replied to.
+        num_files (int): Number of files to process.
+    """
     chat_id: int = command_message.chat.id
     start_message_id: int = reply_msg.id
     end_message_id: int = start_message_id + num_files - 1
@@ -160,22 +212,22 @@ async def process_multiple_messages(
         quote=True
     )
 
-@StreamBot.on_message(
-    filters.private & filters.incoming &
-    (
-        filters.document | filters.video | filters.photo | filters.audio |
-        filters.voice | filters.animation | filters.video_note
-    ),
-    group=4
-)
-async def private_receive_handler(client: Client, message: Message) -> None:
-    await process_media_message(client, message, message)
-
 async def process_media_message(
     client: Client,
     command_message: Message,
     media_message: Message
 ) -> Optional[str]:
+    """
+    Process a single media message and generate/send links.
+
+    Args:
+        client (Client): The Pyrogram client.
+        command_message (Message): The command message invoking the handler.
+        media_message (Message): The media message to process.
+
+    Returns:
+        Optional[str]: The online download link if successful, else None.
+    """
     retries: int = 0
     max_retries: int = 5
     while retries < max_retries:
@@ -198,7 +250,11 @@ async def process_media_message(
                 logger.info(f"Served links from cache for user {command_message.from_user.id}")
                 return cached_data['online_link']
 
-            log_msg: Message = await forward_media(media_message)
+            log_msg: Optional[Message] = await forward_media(media_message)
+            if log_msg is None:
+                await handle_user_error(command_message, "❌ **Failed to forward the media for link generation.**")
+                return None
+
             stream_link, online_link, media_name, media_size = await generate_media_links(log_msg)
 
             set_cache(cache_key, {
@@ -226,7 +282,7 @@ async def process_media_message(
         except Exception as e:
             error_text: str = f"Error processing media: {e}"
             logger.error(error_text, exc_info=True)
-            await handle_user_error(command_message, "An unexpected error occurred.")
+            await handle_user_error(command_message, "🚨 **An unexpected error occurred.**")
             await notify_owner(client, f"⚠️ Critical error:\n{e}")
             return None
     return None
@@ -241,6 +297,9 @@ async def process_media_message(
     group=-1
 )
 async def channel_receive_handler(client: Client, broadcast: Message) -> None:
+    """
+    Handler for incoming media messages in channels. Generates and edits links.
+    """
     retries: int = 0
     max_retries: int = 5
     while retries < max_retries:
@@ -250,7 +309,11 @@ async def channel_receive_handler(client: Client, broadcast: Message) -> None:
                 logger.info(f"Left banned channel: {broadcast.chat.id}")
                 return
 
-            log_msg: Message = await forward_media(broadcast)
+            log_msg: Optional[Message] = await forward_media(broadcast)
+            if log_msg is None:
+                logger.error("Failed to forward media message.")
+                return
+
             stream_link, online_link, media_name, media_size = await generate_media_links(log_msg)
             await log_request(log_msg, broadcast.chat, stream_link, online_link)
 
@@ -294,9 +357,13 @@ async def channel_receive_handler(client: Client, broadcast: Message) -> None:
             break
 
 async def clean_cache_task() -> None:
+    """
+    Periodic task to clean expired cache entries.
+    """
     while True:
         await asyncio.sleep(3600)  # Sleep for 1 hour
         clean_cache()
         logger.info("Cache cleaned up.")
 
+# Start the cache cleaning task
 StreamBot.loop.create_task(clean_cache_task())
