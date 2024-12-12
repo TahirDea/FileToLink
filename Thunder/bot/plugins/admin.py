@@ -114,8 +114,11 @@ async def broadcast_message(client: Client, message: Message):
             disable_web_page_preview=True
         )
 
-        # Await the coroutine to get the list of users
-        all_users = await db.get_all_users()
+        # Await the coroutine to get the AsyncIOMotorCursor
+        all_users_cursor = await db.get_all_users()
+
+        # Convert the AsyncIOMotorCursor to a list
+        all_users = await all_users_cursor.to_list(length=None)
 
         if not all_users:
             await output.edit("📢 **No Users Found**. Broadcast aborted.")
@@ -148,7 +151,7 @@ async def broadcast_message(client: Client, message: Message):
 
                         async with successes_lock:
                             successes += 1
-                        break  # Message sent successfully, exit retry loop
+                        break  # Success, exit retry loop
                     except FloodWait as e:
                         await handle_flood_wait(e)
                         continue  # Retry after waiting
