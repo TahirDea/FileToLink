@@ -20,6 +20,7 @@ from pyrogram.types import (
     Message,
     User
 )
+from pyrogram.errors import FloodWait
 
 from Thunder.bot import StreamBot, multi_clients, work_loads
 from Thunder.vars import Var
@@ -28,6 +29,17 @@ from Thunder.utils.human_readable import humanbytes
 from Thunder.utils.time_format import get_readable_time
 from Thunder.utils.database import Database
 from Thunder.utils.logger import logger, LOG_FILE
+
+from Thunder.utils.helpers import (
+    notify_channel,
+    notify_owner,
+    handle_user_error,
+    log_new_user,
+    generate_media_links,
+    send_links_to_user,
+    log_request,
+    check_admin_privileges
+)
 
 # ==============================
 # Database Initialization
@@ -38,264 +50,6 @@ db = Database(Var.DATABASE_URL, Var.NAME)
 
 # Dictionary to keep track of active broadcasts by their unique IDs
 broadcast_ids: Dict[str, any] = {}
-
-# ==============================
-# Helper Functions
-# ==============================
-
-def generate_unique_id() -> str:
-    """
-    Generate a unique 6-character alphanumeric ID for each broadcast instance.
-
-    Returns:
-        str: A unique ID string.
-    """
-    while True:
-        # Generate a random string of 6 alphanumeric characters
-        random_id = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-        # Ensure the generated ID is not already in use
-        if random_id not in broadcast_ids:
-            return random_id
-
-async def handle_broadcast_completion(
-    message: Message,
-    output: Message,
-    failures: int,
-    successes: int,
-    total_users: int,
-    start_time: float
-):
-    """
-    Handle actions after a broadcast is completed, such as sending a summary to the owner.
-
-    Args:
-        message (Message): The original message that initiated the broadcast.
-        output (Message): The message object used to display broadcast status.
-        failures (int): Number of failed message deliveries.
-        successes (int): Number of successful message deliveries.
-        total_users (int): Total number of users targeted in the broadcast.
-        start_time (float): Timestamp when the broadcast started.
-    """
-    # Calculate the elapsed time since the broadcast started
-    elapsed_time = get_readable_time(time.time() - start_time)
-    # Delete the initial broadcast initiation message
-    await output.delete()
-
-    # Compose the summary message with broadcast results
-    message_text = (
-        "✅ **Broadcast Completed** ✅\n\n"
-        f"⏱️ **Duration:** {elapsed_time}\n\n"
-        f"👥 **Total Users:** {total_users}\n\n"
-        f"✅ **Success:** {successes}\n\n"
-        f"❌ **Failed:** {failures}\n"
-    )
-
-    # Send the summary message to the owner
-    await message.reply_text(
-        message_text,
-        parse_mode=ParseMode.MARKDOWN,
-        disable_web_page_preview=True
-    )
-
-async def notify_channel(bot: Client, text: str):
-    """
-    Send a notification message to the BIN_CHANNEL.
-
-    Args:
-        bot (Client): The Pyrogram client instance.
-        text (str): The text message to send.
-    """
-    try:
-        if hasattr(Var, 'BIN_CHANNEL') and isinstance(Var.BIN_CHANNEL, int) and Var.BIN_CHANNEL != 0:
-            await bot.send_message(chat_id=Var.BIN_CHANNEL, text=text)
-    except Exception as e:
-        logger.error(f"Failed to send message to BIN_CHANNEL: {e}", exc_info=True)
-
-async def notify_owner(client: Client, text: str):
-    """
-    Send a notification message to the bot owner(s).
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        text (str): The text message to send.
-    """
-    try:
-        owner_ids = Var.OWNER_ID
-        if isinstance(owner_ids, (list, tuple)):
-            for owner_id in owner_ids:
-                await client.send_message(chat_id=owner_id, text=text)
-        else:
-            await client.send_message(chat_id=owner_ids, text=text)
-    except Exception as e:
-        logger.error(f"Failed to send message to owner: {e}", exc_info=True)
-
-async def handle_user_error(message: Message, error_msg: str):
-    """
-    Send a standardized error message to the user.
-
-    Args:
-        message (Message): The incoming message triggering the error.
-        error_msg (str): The error message to send.
-    """
-    try:
-        await message.reply_text(f"❌ {error_msg}\nPlease try again or contact support.", quote=True)
-    except Exception as e:
-        logger.error(f"Failed to send error message to user: {e}", exc_info=True)
-
-async def log_new_user(bot: Client, user_id: int, first_name: str):
-    """
-    Log a new user and send a notification to the BIN_CHANNEL if the user is new.
-
-    Args:
-        bot (Client): The Pyrogram client instance.
-        user_id (int): The Telegram user ID.
-        first_name (str): The first name of the user.
-    """
-    try:
-        if not await db.is_user_exist(user_id):
-            await db.add_user(user_id)
-            try:
-                if hasattr(Var, 'BIN_CHANNEL') and isinstance(Var.BIN_CHANNEL, int) and Var.BIN_CHANNEL != 0:
-                    await bot.send_message(
-                        Var.BIN_CHANNEL,
-                        f"👋 **New User Alert!**\n\n"
-                        f"✨ **Name:** [{first_name}](tg://user?id={user_id})\n"
-                        f"🆔 **User ID:** `{user_id}`\n\n"
-                        "has started the bot!"
-                    )
-                logger.info(f"New user added: {user_id} - {first_name}")
-            except Exception as e:
-                logger.error(f"Failed to send new user alert to BIN_CHANNEL: {e}", exc_info=True)
-    except Exception as e:
-        logger.error(f"Error logging new user {user_id}: {e}", exc_info=True)
-
-async def generate_media_links(log_msg: Message) -> Tuple[str, str, str, str]:
-    """
-    Generate stream and download links for media.
-
-    Args:
-        log_msg (Message): The message in BIN_CHANNEL containing media.
-
-    Returns:
-        Tuple[str, str, str, str]: A tuple containing the stream link, download link,
-                                   media name, and media size.
-    """
-    try:
-        base_url = Var.URL.rstrip("/")
-        file_id = log_msg.id
-        # Ensure file_name is a string
-        media_name = get_name(log_msg)
-        if isinstance(media_name, bytes):
-            media_name = media_name.decode('utf-8', errors='replace')
-        else:
-            media_name = str(media_name)
-        media_size = humanbytes(get_media_file_size(log_msg))
-        file_name_encoded = quote_plus(media_name)
-        hash_value = get_hash(log_msg)
-        stream_link = f"{base_url}/watch/{file_id}/{file_name_encoded}?hash={hash_value}"
-        online_link = f"{base_url}/{file_id}/{file_name_encoded}?hash={hash_value}"
-        logger.info(f"Generated media links for file_id {file_id}")
-        return stream_link, online_link, media_name, media_size
-    except Exception as e:
-        error_text = f"Error generating media links: {e}"
-        logger.error(error_text, exc_info=True)
-        await notify_channel(log_msg._client, error_text)
-        raise
-
-async def send_links_to_user(client: Client, command_message: Message, media_name: str,
-                             media_size: str, stream_link: str, online_link: str):
-    """
-    Send the generated links to the user.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        command_message (Message): The message where the command was issued.
-        media_name (str): The name of the media file.
-        media_size (str): The size of the media file.
-        stream_link (str): The streaming link.
-        online_link (str): The direct download link.
-    """
-    msg_text = (
-        "🔗 **Your Links are Ready!**\n\n"
-        f"📄 **File Name:** `{media_name}`\n"
-        f"📂 **File Size:** `{media_size}`\n\n"
-        f"📥 **Download Link:**\n`{online_link}`\n\n"
-        f"🖥️ **Watch Now:**\n`{stream_link}`\n\n"
-        "⏰ **Note:** Links are available as long as the bot is active."
-    )
-    try:
-        await command_message.reply_text(
-            msg_text,
-            quote=True,
-            disable_web_page_preview=True,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🖥️ Watch Now", url=stream_link),
-                 InlineKeyboardButton("📥 Download", url=online_link)]
-            ])
-        )
-        logger.info(f"Sent links to user {command_message.from_user.id}")
-    except Exception as e:
-        error_text = f"Error sending links to user: {e}"
-        logger.error(error_text, exc_info=True)
-        await notify_owner(client, error_text)
-        raise
-
-async def log_request(log_msg: Message, user, stream_link: str, online_link: str):
-    """
-    Log the request details in the BIN_CHANNEL.
-
-    Args:
-        log_msg (Message): The message in BIN_CHANNEL containing media.
-        user (User or Chat): The user or chat who requested the links.
-        stream_link (str): The streaming link.
-        online_link (str): The direct download link.
-    """
-    try:
-        await log_msg.reply_text(
-            f"👤 **Requested by:** [{user.first_name}](tg://user?id={user.id})\n"
-            f"🆔 **User ID:** `{user.id}`\n\n"
-            f"📥 **Download Link:** `{online_link}`\n"
-            f"🖥️ **Watch Now Link:** `{stream_link}`",
-            disable_web_page_preview=True,
-            quote=True
-        )
-        logger.info(f"Logged request in BIN_CHANNEL for user {user.id}")
-    except Exception as e:
-        error_text = f"Error logging request: {e}"
-        logger.error(error_text, exc_info=True)
-        # Not critical, so no need to notify owner
-
-async def check_admin_privileges(client: Client, chat_id: int) -> bool:
-    """
-    Check if the bot is an admin in the chat; skip for private chats.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        chat_id (int): The ID of the chat to check.
-
-    Returns:
-        bool: True if the bot is an admin or the chat is private, False otherwise.
-    """
-    try:
-        chat = await client.get_chat(chat_id)
-        if chat.type == 'private':
-            return True  # Admin check not needed in private chats
-
-        # Get the bot's status in the chat
-        member = await client.get_chat_member(chat_id, client.me.id)
-        # Check if the bot is either an administrator or the creator
-        is_admin_or_creator = member.status in ["administrator", "creator"]
-
-        # Log and return the privilege check result
-        logger.info(f"Bot admin status in chat {chat_id}: {is_admin_or_creator}")
-        return is_admin_or_creator
-
-    except Exception as e:
-        # Log the error if checking admin privileges fails
-        error_text = f"Error checking admin privileges: {e}"
-        logger.error(error_text, exc_info=True)
-        await notify_channel(client, error_text)
-        return False
 
 # ==============================
 # Admin Command Handlers
@@ -344,7 +98,7 @@ async def broadcast_message(client: Client, message: Message):
     """
     # Ensure the command is used by replying to a message
     if not message.reply_to_message:
-        await message.reply_text("⚠️ **Please reply to a message to broadcast.**", quote=True)
+        await handle_user_error(message, "⚠️ **Please reply to a message to broadcast.**")
         return
 
     try:
@@ -470,7 +224,7 @@ async def show_status(client: Client, message: Message):
         # Generate a detailed workload distribution among connected bots
         workloads_text = "📊 **Workloads per Bot:**\n\n"
         workloads = {
-            f"🤖 Bot {c + 0}": load
+            f"🤖 Bot {c + 1}": load
             for c, (bot, load) in enumerate(
                 sorted(work_loads.items(), key=lambda x: x[1], reverse=True)
             )
@@ -716,3 +470,4 @@ async def run_shell_command(client: Client, message: Message):
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True
         )
+        await notify_channel(client, f"Error executing shell command: {e}")

@@ -22,6 +22,17 @@ from Thunder.utils.human_readable import humanbytes
 from Thunder.utils.logger import logger
 from Thunder.vars import Var
 
+from Thunder.utils.helpers import (
+    notify_channel,
+    notify_owner,
+    handle_user_error,
+    log_new_user,
+    generate_media_links,
+    send_links_to_user,
+    log_request,
+    check_admin_privileges
+)
+
 # ==============================
 # Database Initialization
 # ==============================
@@ -36,7 +47,7 @@ CACHE: Dict[str, Dict[str, Union[str, float]]] = {}
 CACHE_EXPIRY: int = 86400  # 24 hours
 
 # ==============================
-# Helper Functions
+# Helper Functions Unique to Stream Plugin
 # ==============================
 
 async def handle_flood_wait(e: FloodWait) -> None:
@@ -49,241 +60,6 @@ async def handle_flood_wait(e: FloodWait) -> None:
     logger.warning(f"FloodWait encountered. Sleeping for {e.value} seconds.")
     await asyncio.sleep(e.value + 1)
 
-
-async def notify_owner(client: Client, text: str) -> None:
-    """
-    Sends a notification message to the bot owners and BIN_CHANNEL if configured.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        text (str): The notification message to send.
-    """
-    try:
-        owner_ids = Var.OWNER_ID
-        if isinstance(owner_ids, (list, tuple, set)):
-            tasks = [
-                client.send_message(chat_id=owner_id, text=text)
-                for owner_id in owner_ids
-            ]
-            await asyncio.gather(*tasks)
-        else:
-            await client.send_message(chat_id=owner_ids, text=text)
-        
-        if hasattr(Var, 'BIN_CHANNEL') and isinstance(Var.BIN_CHANNEL, int) and Var.BIN_CHANNEL != 0:
-            await client.send_message(chat_id=Var.BIN_CHANNEL, text=text)
-    except Exception as e:
-        logger.error(
-            f"Failed to send message to owner or BIN_CHANNEL: {e}",
-            exc_info=True
-        )
-
-
-async def handle_user_error(message: Message, error_msg: str) -> None:
-    """
-    Sends an error message to the user in response to an issue.
-
-    Args:
-        message (Message): The original message from the user.
-        error_msg (str): The error message to send.
-    """
-    try:
-        await message.reply_text(
-            f"❌ {error_msg}\nPlease try again or contact support.",
-            quote=True
-        )
-    except Exception as e:
-        logger.error(
-            f"Failed to send error message to user: {e}",
-            exc_info=True
-        )
-
-
-def get_file_unique_id(media_message: Message) -> Optional[str]:
-    """
-    Retrieves the unique file identifier from a media message.
-
-    Args:
-        media_message (Message): The media message to extract the unique ID from.
-
-    Returns:
-        Optional[str]: The unique file identifier if found, else None.
-    """
-    media_types = [
-        'document', 'video', 'audio', 'photo', 'animation',
-        'voice', 'video_note', 'sticker'
-    ]
-    for media_type in media_types:
-        media = getattr(media_message, media_type, None)
-        if media:
-            return media.file_unique_id
-    return None
-
-
-async def forward_media(media_message: Message) -> Message:
-    """
-    Forwards a media message to the BIN_CHANNEL.
-
-    Args:
-        media_message (Message): The media message to forward.
-
-    Returns:
-        Message: The forwarded message in BIN_CHANNEL.
-
-    Raises:
-        Exception: If forwarding fails after handling FloodWait.
-    """
-    try:
-        return await media_message.forward(chat_id=Var.BIN_CHANNEL)
-    except FloodWait as e:
-        await handle_flood_wait(e)
-        return await forward_media(media_message)
-    except Exception as e:
-        error_text = f"Error forwarding media message: {e}"
-        logger.error(error_text, exc_info=True)
-        await notify_owner(media_message._client, error_text)
-        raise
-
-
-async def generate_media_links(log_msg: Message) -> Tuple[str, str, str, str]:
-    """
-    Generates streaming and download links for the forwarded media message.
-
-    Args:
-        log_msg (Message): The forwarded message in BIN_CHANNEL.
-
-    Returns:
-        Tuple[str, str, str, str]: A tuple containing the stream link, online download link,
-                                    media name, and media size.
-
-    Raises:
-        Exception: If link generation fails.
-    """
-    try:
-        base_url = Var.URL.rstrip("/")
-        file_id = log_msg.id
-        media_name = get_name(log_msg)
-        if isinstance(media_name, bytes):
-            media_name = media_name.decode('utf-8', errors='replace')
-        else:
-            media_name = str(media_name)
-        media_size = humanbytes(get_media_file_size(log_msg))
-        file_name_encoded = quote(media_name)
-        hash_value = get_hash(log_msg)
-        stream_link = f"{base_url}/watch/{file_id}/{file_name_encoded}?hash={hash_value}"
-        online_link = f"{base_url}/{file_id}/{file_name_encoded}?hash={hash_value}"
-        logger.info(f"Generated media links for file_id {file_id}")
-        return stream_link, online_link, media_name, media_size
-    except Exception as e:
-        error_text = f"Error generating media links: {e}"
-        logger.error(error_text, exc_info=True)
-        await notify_owner(log_msg._client, error_text)
-        raise
-
-
-async def send_links_to_user(
-    client: Client,
-    command_message: Message,
-    media_name: str,
-    media_size: str,
-    stream_link: str,
-    online_link: str
-) -> None:
-    """
-    Sends the generated links to the user via a reply message.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        command_message (Message): The original command message from the user.
-        media_name (str): The name of the media file.
-        media_size (str): The size of the media file in human-readable format.
-        stream_link (str): The link to stream the media.
-        online_link (str): The direct download link for the media.
-    """
-    msg_text = (
-        "🔗 **Your Links are Ready!**\n\n"
-        f"📄 **File Name:** `{media_name}`\n"
-        f"📂 **File Size:** `{media_size}`\n\n"
-        f"📥 **Download Link:**\n`{online_link}`\n\n"
-        f"🖥️ **Watch Now:**\n`{stream_link}`\n\n"
-        "⏰ **Note:** Links are available as long as the bot is active."
-    )
-    try:
-        await command_message.reply_text(
-            msg_text,
-            quote=True,
-            disable_web_page_preview=True,
-            parse_mode=enums.ParseMode.MARKDOWN,
-            reply_markup=InlineKeyboardMarkup([
-                [
-                    InlineKeyboardButton("🖥️ Watch Now", url=stream_link),
-                    InlineKeyboardButton("📥 Download", url=online_link)
-                ]
-            ]),
-        )
-        logger.info(f"Sent links to user {command_message.from_user.id}")
-    except Exception as e:
-        error_text = f"Error sending links to user: {e}"
-        logger.error(error_text, exc_info=True)
-        await notify_owner(client, error_text)
-        raise
-
-
-async def log_request(
-    log_msg: Message,
-    user: Union[User, Chat],
-    stream_link: str,
-    online_link: str
-) -> None:
-    """
-    Logs the user's request in BIN_CHANNEL by replying to the forwarded message.
-
-    Args:
-        log_msg (Message): The forwarded message in BIN_CHANNEL.
-        user (Union[User, Chat]): The user who requested the links.
-        stream_link (str): The streaming link generated for the media.
-        online_link (str): The direct download link generated for the media.
-    """
-    try:
-        await log_msg.reply_text(
-            f"👤 **Requested by:** [{user.first_name}](tg://user?id={user.id})\n"
-            f"🆔 **User ID:** `{user.id}`\n\n"
-            f"📥 **Download Link:** `{online_link}`\n"
-            f"🖥️ **Watch Now Link:** `{stream_link}`",
-            disable_web_page_preview=True,
-            quote=True
-        )
-        logger.info(f"Logged request in BIN_CHANNEL for user {user.id}")
-    except Exception as e:
-        error_text = f"Error logging request: {e}"
-        logger.error(error_text, exc_info=True)
-
-
-async def check_admin_privileges(client: Client, chat_id: int) -> bool:
-    """
-    Checks if the bot is an admin in the specified group or supergroup.
-
-    Args:
-        client (Client): The Pyrogram client instance.
-        chat_id (int): The ID of the chat to check.
-
-    Returns:
-        bool: True if the bot is an admin, False otherwise.
-    """
-    try:
-        # Retrieve the bot's member status in the chat
-        member = await client.get_chat_member(chat_id, client.me.id)
-        # Check if the bot has admin status or is the creator of the group
-        return member.status in [
-            enums.ChatMemberStatus.ADMINISTRATOR,
-            enums.ChatMemberStatus.OWNER
-        ]
-    except Exception as e:
-        # Log any errors and return False if the check fails
-        logger.error(
-            f"Error checking admin privileges in chat {chat_id}: {e}",
-            exc_info=True
-        )
-        return False
 
 # ==============================
 # Command Handlers
@@ -487,20 +263,22 @@ async def process_media_message(
         try:
             cache_key: Optional[str] = get_file_unique_id(media_message)
             if cache_key is None:
-                await command_message.reply_text(
-                    "⚠️ Could not extract file identifier from the media."
+                await handle_user_error(
+                    command_message, 
+                    "⚠️ Could not extract file identifier from the media.", 
+                    include_support=False
                 )
                 return None
 
             cached_data: Optional[Dict[str, Union[str, float]]] = CACHE.get(cache_key)
             if cached_data and (time.time() - cached_data['timestamp'] < CACHE_EXPIRY):
                 await send_links_to_user(
-                    client,
-                    command_message,
-                    cached_data['media_name'],
-                    cached_data['media_size'],
-                    cached_data['stream_link'],
-                    cached_data['online_link']
+                    client=client,
+                    command_message=command_message,
+                    media_name=cached_data['media_name'],
+                    media_size=cached_data['media_size'],
+                    stream_link=cached_data['stream_link'],
+                    online_link=cached_data['online_link']
                 )
                 logger.info(
                     f"Served links from cache for user {command_message.from_user.id}"
@@ -519,12 +297,12 @@ async def process_media_message(
             }
 
             await send_links_to_user(
-                client,
-                command_message,
-                media_name,
-                media_size,
-                stream_link,
-                online_link
+                client=client,
+                command_message=command_message,
+                media_name=media_name,
+                media_size=media_size,
+                stream_link=stream_link,
+                online_link=online_link
             )
             await log_request(log_msg, command_message.from_user, stream_link, online_link)
             return online_link
@@ -577,7 +355,7 @@ async def channel_receive_handler(client: Client, broadcast: Message) -> None:
             can_edit: bool = False
             try:
                 member = await client.get_chat_member(broadcast.chat.id, client.me.id)
-                if member.status in ["administrator", "creator"]:
+                if member.status in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]:
                     can_edit = True
                 logger.info(
                     f"Bot can_edit_messages in chat {broadcast.chat.id}: {can_edit}"
@@ -652,7 +430,6 @@ async def clean_cache_task() -> None:
             del CACHE[key]
         if keys_to_delete:
             logger.info(f"Cache cleaned up. Removed {len(keys_to_delete)} entries.")
-
 
 # Start the cache cleaning task
 StreamBot.loop.create_task(clean_cache_task())

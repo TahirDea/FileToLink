@@ -21,6 +21,17 @@ from Thunder.utils.human_readable import humanbytes
 from Thunder.utils.file_properties import get_hash, get_media_file_size, get_name
 from Thunder.utils.logger import logger
 
+from Thunder.utils.helpers import (
+    notify_channel,
+    notify_owner,
+    handle_user_error,
+    log_new_user,
+    generate_media_links,
+    send_links_to_user,
+    log_request,
+    check_admin_privileges
+)
+
 # ==============================
 # Database Initialization
 # ==============================
@@ -43,94 +54,8 @@ FAILED_USER_INFO_MSG = (
 REPLY_DOES_NOT_CONTAIN_USER_MSG = "❌ **The replied message does not contain a user.**"
 
 # ==============================
-# Helper Functions
+# Helper Functions Unique to Common Plugin
 # ==============================
-
-async def notify_channel(bot: Client, text: str):
-    """
-    Send a notification message to the BIN_CHANNEL.
-
-    Args:
-        bot (Client): The Pyrogram client instance.
-        text (str): The text message to send.
-    """
-    try:
-        if hasattr(Var, 'BIN_CHANNEL') and isinstance(Var.BIN_CHANNEL, int) and Var.BIN_CHANNEL != 0:
-            await bot.send_message(chat_id=Var.BIN_CHANNEL, text=text)
-    except Exception as e:
-        logger.error(f"Failed to send message to BIN_CHANNEL: {e}", exc_info=True)
-
-async def handle_user_error(message: Message, error_msg: str):
-    """
-    Send a standardized error message to the user.
-
-    Args:
-        message (Message): The incoming message triggering the error.
-        error_msg (str): The error message to send.
-    """
-    try:
-        await message.reply_text(f"{error_msg}", quote=True)
-    except Exception as e:
-        logger.error(f"Failed to send error message to user: {e}", exc_info=True)
-
-async def log_new_user(bot: Client, user_id: int, first_name: str):
-    """
-    Log a new user and send a notification to the BIN_CHANNEL if the user is new.
-
-    Args:
-        bot (Client): The Pyrogram client instance.
-        user_id (int): The Telegram user ID.
-        first_name (str): The first name of the user.
-    """
-    try:
-        if not await db.is_user_exist(user_id):
-            await db.add_user(user_id)
-            try:
-                if hasattr(Var, 'BIN_CHANNEL') and isinstance(Var.BIN_CHANNEL, int) and Var.BIN_CHANNEL != 0:
-                    await bot.send_message(
-                        Var.BIN_CHANNEL,
-                        f"👋 **New User Alert!**\n\n"
-                        f"✨ **Name:** [{first_name}](tg://user?id={user_id})\n"
-                        f"🆔 **User ID:** `{user_id}`\n\n"
-                        "has started the bot!"
-                    )
-                logger.info(f"New user added: {user_id} - {first_name}")
-            except Exception as e:
-                logger.error(f"Failed to send new user alert to BIN_CHANNEL: {e}", exc_info=True)
-    except Exception as e:
-        logger.error(f"Error logging new user {user_id}: {e}", exc_info=True)
-
-async def generate_media_links(log_msg: Message) -> Tuple[str, str]:
-    """
-    Generate stream and download links for media.
-
-    Args:
-        log_msg (Message): The message containing the media.
-
-    Returns:
-        Tuple[str, str]: A tuple containing the stream link and the download link.
-    """
-    try:
-        base_url = Var.URL.rstrip("/")
-        file_id = log_msg.id
-
-        # Ensure file_name is a string
-        file_name = get_name(log_msg)
-        if isinstance(file_name, bytes):
-            file_name = file_name.decode('utf-8', errors='replace')
-        else:
-            file_name = str(file_name)
-        file_name_encoded = quote_plus(file_name)
-
-        hash_value = get_hash(log_msg)
-        stream_link = f"{base_url}/watch/{file_id}/{file_name_encoded}?hash={hash_value}"
-        online_link = f"{base_url}/{file_id}/{file_name_encoded}?hash={hash_value}"
-        logger.info(f"Generated media links for file_id {file_id}")
-        return stream_link, online_link
-    except Exception as e:
-        logger.error(f"Error generating media links: {e}", exc_info=True)
-        await notify_channel(log_msg._client, f"Error generating media links: {e}")
-        raise
 
 async def generate_dc_text(user: User) -> str:
     """
@@ -194,24 +119,15 @@ async def start_command(bot: Client, message: Message):
                 if not file_name:
                     file_name = "Unknown File"
                 file_size = humanbytes(get_media_file_size(get_msg))
-                stream_link, online_link = await generate_media_links(get_msg)
+                stream_link, online_link, media_name, media_size = await generate_media_links(get_msg)
 
-                await message.reply_text(
-                    text=(
-                        f"🔗 **Your Links are Ready!**\n\n"
-                        f"📄 **File Name:** `{file_name}`\n\n"
-                        f"📂 **File Size:** `{file_size}`\n\n"
-                        f"📥 **Download Link:**\n`{online_link}`\n\n"
-                        f"🖥️ **Watch Now:**\n`{stream_link}`\n\n"
-                        "⏰ **Note:** Links are available as long as the bot is active."
-                    ),
-                    disable_web_page_preview=True,
-                    reply_markup=InlineKeyboardMarkup([
-                        [
-                            InlineKeyboardButton("🖥️ Watch Now", url=stream_link),
-                            InlineKeyboardButton("📥 Download", url=online_link)
-                        ]
-                    ])
+                await send_links_to_user(
+                    client=bot,
+                    command_message=message,
+                    media_name=media_name,
+                    media_size=file_size,
+                    stream_link=stream_link,
+                    online_link=online_link
                 )
                 logger.info(f"Provided links to user {message.from_user.id} for file_id {msg_id}")
             except ValueError:
