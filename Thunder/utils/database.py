@@ -1,10 +1,9 @@
 # Thunder/utils/database.py
 
 import datetime
-from typing import Optional
+from typing import Optional, List, Dict
 import motor.motor_asyncio
 from motor.motor_asyncio import AsyncIOMotorCollection
-
 
 class Database:
     """
@@ -96,7 +95,7 @@ class Database:
         count = await self.col.count_documents({})
         return count
 
-    async def get_all_users(self):
+    async def get_all_users(self) -> motor.motor_asyncio.AsyncIOMotorCursor:
         """
         Retrieve all users.
 

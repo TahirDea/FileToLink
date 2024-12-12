@@ -19,6 +19,7 @@ from Thunder.bot import StreamBot
 from Thunder.utils.database import Database
 from Thunder.utils.file_properties import get_hash, get_media_file_size, get_name
 from Thunder.utils.human_readable import humanbytes
+from Thunder.utils.time_format import get_readable_time
 from Thunder.utils.logger import logger
 from Thunder.vars import Var
 
@@ -48,6 +49,7 @@ from Thunder.utils.cache import get_cached_data, set_cache, clean_cache
 
 CACHE_EXPIRY: int = 86400  # 24 hours
 
+
 def get_file_unique_id(media_message: Message) -> Optional[str]:
     """
     Extract the unique file ID from a media message.
@@ -68,7 +70,8 @@ def get_file_unique_id(media_message: Message) -> Optional[str]:
             return media.file_unique_id
     return None
 
-async def forward_media(media_message: Message) -> Message:
+
+async def forward_media(media_message: Message) -> Optional[Message]:
     """
     Forward a media message to the BIN_CHANNEL.
 
@@ -76,18 +79,19 @@ async def forward_media(media_message: Message) -> Message:
         media_message (Message): The media message to forward.
 
     Returns:
-        Message: The forwarded message in BIN_CHANNEL.
+        Optional[Message]: The forwarded message in BIN_CHANNEL or None if failed.
     """
     try:
         return await media_message.forward(chat_id=Var.BIN_CHANNEL)
     except FloodWait as e:
         logger.warning(f"FloodWait error: sleeping for {e.value} seconds.")
-        await asyncio.sleep(e.value + 1)
+        await handle_flood_wait(e)
         return await forward_media(media_message)
     except Exception as e:
         error_msg = f"Error forwarding media message: {e}"
         logger.error(error_msg, exc_info=True)
         return None
+
 
 @StreamBot.on_message(filters.command("link") & ~filters.private)
 async def link_handler(client: Client, message: Message) -> None:
@@ -133,6 +137,7 @@ async def link_handler(client: Client, message: Message) -> None:
         await message.reply_text("⚠️ The replied message has no file.", quote=True)
         return
 
+    # Process single or multiple files
     command_parts: List[str] = message.text.strip().split()
     num_files: int = 1
     if len(command_parts) > 1:
@@ -150,6 +155,7 @@ async def link_handler(client: Client, message: Message) -> None:
     else:
         await process_multiple_messages(client, message, reply_msg, num_files)
 
+
 @StreamBot.on_message(
     filters.private & filters.incoming &
     (
@@ -163,6 +169,7 @@ async def private_receive_handler(client: Client, message: Message) -> None:
     Handler for incoming media messages in private chats. Generates links.
     """
     await process_media_message(client, message, message)
+
 
 async def process_multiple_messages(
     client: Client,
@@ -200,7 +207,7 @@ async def process_multiple_messages(
                 download_links.append(download_link)
                 processed_count += 1
         else:
-            logger.info(f"Message {msg.id if msg else 'Unknown'} no media, skipping.")
+            logger.info(f"Message {msg.id if msg else 'Unknown'} has no media, skipping.")
 
     if download_links:
         links_text: str = "\n".join(download_links)
@@ -211,6 +218,7 @@ async def process_multiple_messages(
         f"✅ **Processed {processed_count} files starting from the replied message.**",
         quote=True
     )
+
 
 async def process_media_message(
     client: Client,
@@ -234,7 +242,7 @@ async def process_media_message(
         try:
             cache_key: Optional[str] = get_file_unique_id(media_message)
             if cache_key is None:
-                await command_message.reply_text("⚠️ Could not extract file identifier.")
+                await command_message.reply_text("⚠️ Could not extract file identifier.", quote=True)
                 return None
 
             cached_data = get_cached_data(cache_key)
@@ -287,6 +295,7 @@ async def process_media_message(
             return None
     return None
 
+
 @StreamBot.on_message(
     filters.channel & filters.incoming &
     (
@@ -321,8 +330,9 @@ async def channel_receive_handler(client: Client, broadcast: Message) -> None:
             try:
                 member = await client.get_chat_member(broadcast.chat.id, client.me.id)
                 can_edit = member.status in ["administrator", "creator"]
-            except Exception as e:
-                logger.error(f"Error checking admin status: {e}", exc_info=True)
+                logger.debug(f"Bot admin status in chat {broadcast.chat.id}: {can_edit}")
+            except RPCError as e:
+                logger.error(f"RPCError while checking admin status: {e}", exc_info=True)
 
             if can_edit:
                 links_keyboard = generate_links_keyboard(stream_link, online_link)
@@ -356,6 +366,7 @@ async def channel_receive_handler(client: Client, broadcast: Message) -> None:
             await notify_owner(client, f"⚠️ Critical error in channel handler:\n{e}")
             break
 
+
 async def clean_cache_task() -> None:
     """
     Periodic task to clean expired cache entries.
@@ -364,6 +375,7 @@ async def clean_cache_task() -> None:
         await asyncio.sleep(3600)  # Sleep for 1 hour
         clean_cache()
         logger.info("Cache cleaned up.")
+
 
 # Start the cache cleaning task
 StreamBot.loop.create_task(clean_cache_task())

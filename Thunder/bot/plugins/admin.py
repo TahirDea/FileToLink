@@ -4,10 +4,9 @@ import os
 import sys
 import time
 import asyncio
-import datetime
 import shutil
 import psutil
-import html  # <-- Added this import
+import html  # Imported to handle HTML escaping
 from typing import Tuple, List, Dict, Optional
 
 from pyrogram import Client, filters
@@ -48,6 +47,7 @@ from Thunder.utils.decorators import command_handler
 
 broadcast_ids: Dict[str, any] = {}
 
+
 async def handle_broadcast_completion(
     message: Message,
     output: Message,
@@ -75,6 +75,7 @@ async def handle_broadcast_completion(
         disable_web_page_preview=True
     )
 
+
 @StreamBot.on_message(filters.command("users") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def get_total_users(client: Client, message: Message):
@@ -97,6 +98,7 @@ async def get_total_users(client: Client, message: Message):
             disable_web_page_preview=True
         )
 
+
 @StreamBot.on_message(filters.command("broadcast") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def broadcast_message(client: Client, message: Message):
@@ -114,10 +116,10 @@ async def broadcast_message(client: Client, message: Message):
             disable_web_page_preview=True
         )
 
-        # Await the coroutine to get the AsyncIOMotorCursor
+        # Fetch all users from the database
         all_users_cursor = await db.get_all_users()
 
-        # Convert the AsyncIOMotorCursor to a list
+        # Convert AsyncIOMotorCursor to a list
         all_users = await all_users_cursor.to_list(length=None)
 
         if not all_users:
@@ -127,7 +129,7 @@ async def broadcast_message(client: Client, message: Message):
         self_id = client.me.id
         start_time = time.time()
         successes, failures = 0, 0
-        semaphore = asyncio.Semaphore(10)
+        semaphore = asyncio.Semaphore(10)  # Limit concurrency to 10
         successes_lock = asyncio.Lock()
         failures_lock = asyncio.Lock()
 
@@ -153,6 +155,7 @@ async def broadcast_message(client: Client, message: Message):
                             successes += 1
                         break  # Success, exit retry loop
                     except FloodWait as e:
+                        logger.warning(f"FloodWait error: sleeping for {e.value} seconds.")
                         await handle_flood_wait(e)
                         continue  # Retry after waiting
                     except Exception as e:
@@ -167,11 +170,11 @@ async def broadcast_message(client: Client, message: Message):
                             failures += 1
                         await asyncio.sleep(0.5)  # Brief pause before retrying
 
-        # Create a list of tasks for concurrent execution
+        # Create and gather tasks
         tasks = [send_message_to_user(int(user['id'])) for user in all_users]
         await asyncio.gather(*tasks)
 
-        # Handle the completion of the broadcast
+        # Handle broadcast completion
         await handle_broadcast_completion(
             message,
             output,
@@ -190,6 +193,7 @@ async def broadcast_message(client: Client, message: Message):
             disable_web_page_preview=True
         )
         await notify_channel(client, f"⚠️ Critical error during broadcast:\n{e}")
+
 
 @StreamBot.on_message(filters.command("status") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
@@ -231,6 +235,7 @@ async def show_status(client: Client, message: Message):
             disable_web_page_preview=True
         )
 
+
 @StreamBot.on_message(filters.command("stats") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def show_stats(client: Client, message: Message):
@@ -268,6 +273,7 @@ async def show_stats(client: Client, message: Message):
             disable_web_page_preview=True
         )
 
+
 @StreamBot.on_message(filters.command("restart") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def restart_bot(client: Client, message: Message):
@@ -290,6 +296,7 @@ async def restart_bot(client: Client, message: Message):
             parse_mode=ParseMode.MARKDOWN,
             disable_web_page_preview=True
         )
+
 
 @StreamBot.on_message(filters.command("log") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
@@ -329,6 +336,7 @@ async def send_logs(client: Client, message: Message):
             disable_web_page_preview=True
         )
 
+
 @StreamBot.on_message(filters.command("shell") & filters.private)
 @command_handler(allowed_users=list(Var.OWNER_ID))
 async def run_shell_command(client: Client, message: Message):
@@ -356,7 +364,7 @@ async def run_shell_command(client: Client, message: Message):
         stdout, stderr = await process.communicate()
         stdout, stderr = stdout.decode().strip(), stderr.decode().strip()
 
-        # html is now imported above
+        # Escape HTML in outputs
         stdout = html.escape(stdout)
         stderr = html.escape(stderr)
 
