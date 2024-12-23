@@ -598,8 +598,7 @@ async def process_media_message(
 )
 async def channel_receive_handler(client: Client, broadcast: Message) -> None:
     """
-    Handles incoming media messages from channels, forwards them, generates links,
-    and updates the message with link buttons.
+    Handles incoming media messages from channels without posting or editing messages.
 
     Args:
         client (Client): The Pyrogram client instance.
@@ -611,69 +610,19 @@ async def channel_receive_handler(client: Client, broadcast: Message) -> None:
         try:
             if int(broadcast.chat.id) in Var.BANNED_CHANNELS:
                 await client.leave_chat(broadcast.chat.id)
-                logger.info(f"Left banned channel: {broadcast.chat.id}")
                 return
 
             log_msg: Message = await forward_media(broadcast)
             stream_link, online_link, media_name, media_size = await generate_media_links(log_msg)
             await log_request(log_msg, broadcast.chat, stream_link, online_link)
 
-            can_edit: bool = False
-            try:
-                member = await client.get_chat_member(broadcast.chat.id, client.me.id)
-                if member.status in ["administrator", "creator"]:
-                    can_edit = True
-                logger.info(
-                    f"Bot can_edit_messages in chat {broadcast.chat.id}: {can_edit}"
-                )
-            except Exception as e:
-                logger.error(
-                    f"Error checking bot's admin status: {e}",
-                    exc_info=True
-                )
-
-            if can_edit:
-                await client.edit_message_reply_markup(
-                    chat_id=broadcast.chat.id,
-                    message_id=broadcast.id,
-                    reply_markup=InlineKeyboardMarkup([
-                        [
-                            InlineKeyboardButton("🖥️ Watch Now", url=stream_link),
-                            InlineKeyboardButton("📥 Download", url=online_link)
-                        ]
-                    ])
-                )
-                logger.info(f"Edited broadcast message in channel {broadcast.chat.id}")
-            else:
-                await client.send_message(
-                    chat_id=broadcast.chat.id,
-                    text=(
-                        "🔗 **Your Links are Ready!**\n\n"
-                        f"📄 **File Name:** `{media_name}`\n"
-                        f"📂 **File Size:** `{media_size}`\n\n"
-                        f"📥 **Download Link:**\n`{online_link}`\n\n"
-                        f"🖥️ **Watch Now:**\n`{stream_link}`\n\n"
-                        "⏰ **Note:** Links are available as long as the bot is active."
-                    ),
-                    reply_markup=InlineKeyboardMarkup([
-                        [
-                            InlineKeyboardButton("🖥️ Watch Now", url=stream_link),
-                            InlineKeyboardButton("📥 Download", url=online_link)
-                        ]
-                    ]),
-                )
-                logger.info(
-                    f"Sent new message with links in channel {broadcast.chat.id}"
-                )
-            break
+            break  # Exit loop after successful processing
 
         except FloodWait as e:
             await handle_flood_wait(e)
             retries += 1
             continue
         except Exception as e:
-            error_text: str = f"Error handling channel message: {e}"
-            logger.error(error_text, exc_info=True)
             await notify_owner(client, f"⚠️ Critical error occurred in channel handler:\n{e}")
             break
 
