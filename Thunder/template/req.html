@@ -2,43 +2,53 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta property="og:image" content="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/live.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
-    <meta name="description" content="Thunder FileToLink - Watch and stream videos on any device with your favorite player">
-    <meta name="theme-color" content="#1a1a2e">
+    <!-- Original Placeholder 1: Title -->
+    <title>%s</title>
+
+    <!-- Meta -->
+    <meta name="description" content="Watch and stream videos online or send to your favorite player with Thunder FileToLink.">
     <meta property="og:title" content="Thunder FileToLink">
     <meta property="og:description" content="Watch online or stream to your favorite player.">
     <meta property="og:type" content="website">
-    <meta name="screen-orientation" content="any"><meta name="x5-orientation" content="any"><meta name="full-screen" content="yes"><meta name="x5-fullscreen" content="true"><meta name="apple-mobile-web-app-capable" content="yes">
-    <title>%s</title>
-
-    <!-- Resource hints -->
-    <link rel="preconnect" href="https://cdn.jsdelivr.net"><link rel="preconnect" href="https://cdnjs.cloudflare.com"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://cdn.vidstack.io"><link rel="dns-prefetch" href="https://cdn.vidstack.io">
+    <meta property="og:image" content="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/live.png">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="color-scheme" content="dark light">
+    <!-- Web App Manifest (Standard) -->
+    <link rel="manifest" href='data:application/json,{"name":"File Streaming","short_name":"File Streamer","start_url":".","display":"standalone","background_color":"#1a1a2e","theme_color":"#1a1a2e","scope":"/","icons":[{"src":"https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/Thunder.jpg","type":"image/jpeg","sizes":"192x192","purpose":"any"},{"src":"https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/Thunder.jpg","type":"image/jpeg","sizes":"512x512","purpose":"any maskable"}]}'>
+    <link rel="apple-mobile-web-app-capable" content="yes">
 
     <!-- Icons -->
-    <link rel="icon" href="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/Thunder.jpg" type="image/jpeg"><link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/Thunder.jpg">
+    <link rel="icon" href="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/Thunder.jpg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/Thunder.jpg">
+
+    <!-- Resource Hints -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.vidstack.io" crossorigin>
 
     <!-- Fonts -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" as="style"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'"><noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome CSS (Updated to latest version) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 
-    <!-- Vidstack Player CSS -->
-    <link rel="preload" href="https://cdn.vidstack.io/player/theme.css" as="style"><link rel="stylesheet" href="https://cdn.vidstack.io/player/theme.css" /><link rel="preload" href="https://cdn.vidstack.io/player/video.css" as="style"><link rel="stylesheet" href="https://cdn.vidstack.io/player/video.css" />
+    <!-- Vidstack Player CSS (Official CDN links) -->
+    <link rel="stylesheet" href="https://cdn.vidstack.io/player/theme.css" />
+    <link rel="stylesheet" href="https://cdn.vidstack.io/player/video.css" />
 
-    <!-- Vidstack Player JS Modules -->
-    <script type="module" src="https://cdn.vidstack.io/player/vidstack.js" defer></script><script type="module" src="https://cdn.vidstack.io/player/layouts/default.js" defer></script><script type="module" src="https://cdn.vidstack.io/player/icons.js" defer></script>
+    <!-- Main Stylesheet (Full, comments removed) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/NetaBots/Aeon-MLTB-docker@master/1.css" />
 
-    <!-- Web App Manifest -->
-    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiRmlsZSBTdHJlYW1pbmciLCJzaG9ydF9uYW1lIjoiRmlsZSBTdHJlYW1lciIsInN0YXJ0X3VybCI6Ii8iLCJkaXNwbGF5IjoiZnVsbHNjcmVlbiIsImJhY2tncm91bmRfY29sb3IiOiIjMWExYTJlIiwidGhlbWVfY29sb3IiOiIjMWExYTJlIiwiaWNvbnMiOlt7InNyYyI6Imh0dHBzOi8vY2RuLmpzZGVsaXZyLm5ldC9naC9meWF6MDUvUmVzb3VyY2VzQG1haW4vSHlkcm9TdHJlYW1lckJvdC9UaHVuZGVyLmpwZyIsInR5cGUiOiJpbWFnZS9qcGVnIiwic2l6ZXMiOiIxOTJ4MTkyIn1dfQ==">
-
-    <!-- CSS -->
-    <link href="https://cdn.jsdelivr.net/gh/NetaBots/Aeon-MLTB-docker@master/c2.css" rel="stylesheet">
 </head>
 <body>
-    <button class="toggle-dark-mode" onclick="app.toggleDarkMode()" aria-label="Toggle Light/Dark Mode"><i class="fas fa-moon"></i></button>
+    <button class="toggle-dark-mode" type="button" onclick="app.toggleDarkMode()" aria-label="Toggle Light/Dark Mode"><i class="fas fa-moon" aria-hidden="true"></i></button>
     <div class="bg-animation"><div class="bg-gradient"></div></div>
 
     <div class="container">
-        <header class="header">
+        <header class="header" role="banner">
             <div class="file-info">
                 <h1 id="file-name">%s</h1>
                 <div class="file-meta">
@@ -49,57 +59,64 @@
             </div>
         </header>
 
-        <main>
+        <main id="main-content" role="main">
             <div class="player-container">
-                <media-player id="player" src="%s" playsinline autoplay="false" crossorigin poster="" aspect-ratio="16/9">
-                    <media-outlet><media-poster></media-poster></media-outlet>
-                    <media-video-layout icons="vidstack/icons" />
+                <!-- Vidstack Player - Following official docs -->
+                <media-player id="player" title="" src="%s" playsinline load="idle" crossorigin="anonymous" aspect-ratio="16/9">
+                    <media-provider>
+                        <media-poster slot="poster"></media-poster>
+                    </media-provider>
+                    <media-video-layout icons="default" />
                 </media-player>
-                <div class="loading-overlay" id="loading-overlay"><div class="spinner"></div></div>
-                <div class="error-overlay" id="error-overlay">
-                    <div class="error-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                <div class="loading-overlay" id="loading-overlay" aria-hidden="true"><div class="spinner"></div><span class="visually-hidden">Loading...</span></div>
+                <div class="error-overlay" id="error-overlay" role="alert" aria-hidden="true">
+                    <div class="error-icon" aria-hidden="true"><i class="fas fa-exclamation-triangle"></i></div>
                     <h3 class="error-title">Playback Error</h3>
                     <p class="error-message" id="error-message">Could not load video.</p>
-                    <button class="error-button" onclick="app.retryPlayback()"><i class="fas fa-redo"></i> Retry</button>
+                    <button type="button" class="error-button" onclick="app.retryPlayback()"><i class="fas fa-redo" aria-hidden="true"></i> Retry</button>
                 </div>
             </div>
 
             <section class="controls-section" aria-label="Playback options">
                 <div class="dropdown-container" id="stream-dropdown-container">
-                    <button class="action-button secondary-button stream-btn" onclick="app.toggleStreamMenu(event)" aria-haspopup="true" aria-expanded="false" id="stream-btn-label">
+                    <button type="button" class="action-button secondary-button stream-btn" onclick="app.toggleStreamMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="stream-menu" id="stream-btn-label">
                         <i class="fas fa-play-circle" aria-hidden="true"></i><span>Stream</span>
                     </button>
                     <ul class="dropdown-menu" id="stream-menu" aria-labelledby="stream-btn-label" role="menu">
-                        <li class="dropdown-heading"><i class="fas fa-desktop" aria-hidden="true"></i><span>PC Players</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('vlc-pc')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('vlc-pc')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/vlc.png" alt="" class="player-logo" loading="lazy"> <span>VLC Player</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('potplayer')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('potplayer')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/pot.png" alt="" class="player-logo" loading="lazy"> <span>PotPlayer</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('mpc')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('mpc')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/classic.png" alt="" class="player-logo" loading="lazy"> <span>MPC-HC</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('kmpc')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('kmpc')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/km.webp" alt="" class="player-logo" loading="lazy"> <span>KM Player (PC)</span></li>
-                        <li class="dropdown-heading"><i class="fas fa-mobile-alt" aria-hidden="true"></i><span>Mobile Players</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('vlc')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('vlc')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/vlc.png" alt="" class="player-logo" loading="lazy"> <span>VLC Mobile</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('mxpro')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('mxpro')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/mx.png" alt="" class="player-logo" loading="lazy"> <span>MX Player Pro</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('mx')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('mx')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/mx.png" alt="" class="player-logo" loading="lazy"> <span>MX Player</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('nplayer')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('nplayer')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/nPlayer.webp" alt="" class="player-logo" loading="lazy"> <span>nPlayer</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('splayer')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('splayer')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/splayer.webp" alt="" class="player-logo" loading="lazy"> <span>S Player</span></li>
-                        <li class="dropdown-item" role="menuitem" tabindex="0" onclick="app.playOnline('km')" onkeydown="if(event.key === 'Enter' || event.key === ' ') app.playOnline('km')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/km.webp" alt="" class="player-logo" loading="lazy"> <span>KM Player</span></li>
+                        <li class="dropdown-heading" role="presentation"><i class="fas fa-desktop" aria-hidden="true"></i><span>PC Players</span></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('vlc-pc')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/vlc.png" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>VLC Player</span></a></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('potplayer')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/pot.png" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>PotPlayer</span></a></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('mpc')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/FileToLink/classic.png" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>MPC-HC</span></a></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('kmpc')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/km.webp" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>KM Player (PC)</span></a></li>
+                        <li class="dropdown-heading" role="presentation"><i class="fas fa-mobile-alt" aria-hidden="true"></i><span>Mobile Players</span></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('vlc')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/vlc.png" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>VLC Mobile</span></a></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('mxpro')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/mx.png" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>MX Player Pro</span></a></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('mx')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/mx.png" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>MX Player</span></a></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('nplayer')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/nPlayer.webp" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>nPlayer</span></a></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('splayer')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/splayer.webp" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>S Player</span></a></li>
+                        <li><a href="#" class="dropdown-item" role="menuitem" tabindex="0" onclick="event.preventDefault(); app.playOnline('km')"><img src="https://cdn.jsdelivr.net/gh/fyaz05/Resources@main/HydroStreamerBot/km.webp" alt="" class="player-logo" loading="lazy" width="24" height="24"> <span>KM Player</span></a></li>
                     </ul>
                 </div>
-                <button class="action-button secondary-button" onclick="app.download()"><i class="fas fa-cloud-download-alt" aria-hidden="true"></i><span>Download</span></button>
-                <button class="action-button secondary-button" onclick="app.copyLink()"><i class="fas fa-link" aria-hidden="true"></i><span>Copy Link</span></button>
+                <button type="button" class="action-button secondary-button" onclick="app.download()"><i class="fas fa-cloud-download-alt" aria-hidden="true"></i><span>Download</span></button>
+                <button type="button" class="action-button secondary-button" onclick="app.copyLink()"><i class="fas fa-link" aria-hidden="true"></i><span>Copy Link</span></button>
             </section>
         </main>
     </div>
 
-    <footer><p>Made by AI © 2025 | <a href="https://github.com/fyaz05/FileToLink" target="_blank" rel="noopener noreferrer"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a></p></footer>
+    <footer role="contentinfo">
+        <p>Made by AI © 2025 | <a href="https://github.com/fyaz05/FileToLink" target="_blank" rel="noopener noreferrer"><i class="fab fa-github" aria-hidden="true"></i> GitHub</a></p>
+    </footer>
 
-    <div class="toast" id="toast" role="alert" aria-live="assertive">
-        <div class="toast-icon"><i class="fas fa-info-circle"></i></div>
+    <div class="toast" id="toast" role="alert" aria-live="assertive" aria-hidden="true">
+        <div class="toast-icon" aria-hidden="true"><i class="fas fa-info-circle"></i></div>
         <div class="toast-message">Action completed.</div>
-        <div class="toast-progress"></div>
+        <div class="toast-progress" aria-hidden="true"></div>
     </div>
 
-    <!-- JS -->
-    <script src="https://cdn.jsdelivr.net/gh/NetaBots/Aeon-MLTB-docker@master/j2.js"></script>
+    <!-- Vidstack Player JS (Official CDN link) -->
+    <script type="module" src="https://cdn.vidstack.io/player"></script>
 
+    <!-- Application Logic (Minimal Comments, V1 Adapted) -->
+    <script src="https://cdn.jsdelivr.net/gh/NetaBots/Aeon-MLTB-docker@master/1.js"></script>
 </body>
 </html>
