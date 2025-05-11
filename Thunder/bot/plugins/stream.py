@@ -616,9 +616,9 @@ async def link_handler(client, message):
     if len(command_parts) > 1:
         try:
             num_files = int(command_parts[1])
-            if num_files < 1 or num_files > 25:
+            if num_files < 1 or num_files > 100:
                 await message.reply_text(
-                    "⚠️ **Please specify a number between 1 and 25.**",
+                    "⚠️ **Please specify a number between 1 and 100.**",
                     quote=True
                 )
                 return
